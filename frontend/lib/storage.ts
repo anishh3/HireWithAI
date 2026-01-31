@@ -32,4 +32,6 @@ export function setRecruiter() {
 export function clearUser() {
   if (typeof window === "undefined") return;
   localStorage.removeItem(USER_KEY);
+  // Clear all code storage to prevent leaking between accounts
+  sessionStorage.clear();
 }

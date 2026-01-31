@@ -31,49 +31,81 @@ export default function SignupPage() {
 
   return (
     <main style={{
-      minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center",
-      padding: "1.5rem", background: "var(--bg-main)", position: "relative",
+      minHeight: "100vh",
+      display: "flex",
+      alignItems: "center",
+      justifyContent: "center",
+      padding: "var(--space-6)",
+      background: "var(--bg-base)",
+      position: "relative",
     }}>
-      <div className="radial-glow" style={{ top: "50%", left: "50%", transform: "translate(-50%, -50%)", width: "600px", height: "600px", opacity: 0.3 }} />
+      <div className="radial-glow" style={{ top: "20%", left: "50%", transform: "translateX(-50%)", width: "600px", height: "600px", opacity: 0.5 }} />
       
-      <div className="glass-card animate-slide-up" style={{ width: "100%", maxWidth: "420px", padding: "3rem" }}>
-        <div style={{ textAlign: "center", marginBottom: "2rem" }}>
-          <div style={{ width: "56px", height: "56px", background: "linear-gradient(135deg, var(--primary), var(--accent))", borderRadius: "14px", margin: "0 auto 1.5rem", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "1.75rem" }}>✨</div>
-          <h1 style={{ fontSize: "1.75rem", fontWeight: 800, marginBottom: "0.5rem" }}>Create account</h1>
-          <p style={{ color: "var(--text-muted)" }}>Sign up to start your assessment</p>
+      <div className="glass-card animate-fade-in" style={{ width: "100%", maxWidth: "400px", padding: "var(--space-8)" }}>
+        <div style={{ textAlign: "center", marginBottom: "var(--space-8)" }}>
+          <Link href="/" style={{ display: "inline-flex", alignItems: "center", gap: "var(--space-2)", marginBottom: "var(--space-6)" }}>
+            <div style={{ width: "28px", height: "28px", background: "var(--primary)", borderRadius: "var(--radius-sm)" }} />
+            <span style={{ fontSize: "1.1rem", fontWeight: 700, color: "var(--text-primary)" }}>HireWithAI</span>
+          </Link>
+          <h1 style={{ fontSize: "1.5rem", fontWeight: 600, marginBottom: "var(--space-2)" }}>Create your account</h1>
+          <p style={{ color: "var(--text-secondary)", fontSize: "0.9rem" }}>Get started with your assessment</p>
         </div>
 
         <form onSubmit={handleSubmit}>
-          <div style={{ marginBottom: "1rem" }}>
-            <label style={{ display: "block", marginBottom: "0.5rem", fontSize: "0.8rem", fontWeight: 700, color: "var(--text-dim)", textTransform: "uppercase" }}>Email</label>
-            <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} required placeholder="name@company.com" style={{
-              width: "100%", padding: "0.875rem 1rem", borderRadius: "10px", border: "1px solid var(--border)",
-              background: "var(--bg-input)", color: "white", fontSize: "1rem",
-            }} />
+          <div style={{ marginBottom: "var(--space-4)" }}>
+            <label className="text-label" style={{ display: "block", marginBottom: "var(--space-2)" }}>Email</label>
+            <input
+              type="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              required
+              placeholder="you@company.com"
+              className="input"
+            />
           </div>
-          <div style={{ marginBottom: "1rem" }}>
-            <label style={{ display: "block", marginBottom: "0.5rem", fontSize: "0.8rem", fontWeight: 700, color: "var(--text-dim)", textTransform: "uppercase" }}>Password</label>
-            <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} required minLength={6} placeholder="At least 6 characters" style={{
-              width: "100%", padding: "0.875rem 1rem", borderRadius: "10px", border: "1px solid var(--border)",
-              background: "var(--bg-input)", color: "white", fontSize: "1rem",
-            }} />
+          <div style={{ marginBottom: "var(--space-4)" }}>
+            <label className="text-label" style={{ display: "block", marginBottom: "var(--space-2)" }}>Password</label>
+            <input
+              type="password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              required
+              minLength={6}
+              placeholder="At least 6 characters"
+              className="input"
+            />
           </div>
-          <div style={{ marginBottom: "1.5rem" }}>
-            <label style={{ display: "block", marginBottom: "0.5rem", fontSize: "0.8rem", fontWeight: 700, color: "var(--text-dim)", textTransform: "uppercase" }}>Confirm Password</label>
-            <input type="password" value={confirm} onChange={(e) => setConfirm(e.target.value)} required placeholder="••••••••" style={{
-              width: "100%", padding: "0.875rem 1rem", borderRadius: "10px", border: "1px solid var(--border)",
-              background: "var(--bg-input)", color: "white", fontSize: "1rem",
-            }} />
+          <div style={{ marginBottom: "var(--space-6)" }}>
+            <label className="text-label" style={{ display: "block", marginBottom: "var(--space-2)" }}>Confirm Password</label>
+            <input
+              type="password"
+              value={confirm}
+              onChange={(e) => setConfirm(e.target.value)}
+              required
+              placeholder="••••••••"
+              className="input"
+            />
           </div>
 
-          {error && <p style={{ color: "var(--error)", marginBottom: "1rem", fontSize: "0.875rem", textAlign: "center" }}>{error}</p>}
+          {error && (
+            <p style={{ 
+              color: "var(--error)", 
+              marginBottom: "var(--space-4)", 
+              fontSize: "0.875rem", 
+              textAlign: "center",
+              padding: "var(--space-3)",
+              background: "var(--error-muted)",
+              borderRadius: "var(--radius-sm)"
+            }}>{error}</p>
+          )}
 
-          <button type="submit" disabled={loading} className="btn-primary" style={{ width: "100%", padding: "0.875rem" }}>
-            {loading ? "Creating account..." : "Sign up"}
+          <button type="submit" disabled={loading} className="btn-primary" style={{ width: "100%", padding: "var(--space-4)" }}>
+            {loading ? "Creating account..." : "Create account"}
           </button>
 
-          <p style={{ marginTop: "1.5rem", textAlign: "center", color: "var(--text-muted)", fontSize: "0.9rem" }}>
-            Already have an account? <Link href="/login" style={{ color: "var(--primary)", fontWeight: 600 }}>Sign in</Link>
+          <p style={{ marginTop: "var(--space-6)", textAlign: "center", color: "var(--text-tertiary)", fontSize: "0.875rem" }}>
+            Already have an account?{" "}
+            <Link href="/login" style={{ color: "var(--primary)", fontWeight: 500 }}>Sign in</Link>
           </p>
         </form>
       </div>

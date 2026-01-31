@@ -84,6 +84,7 @@ class AiChatRequest(BaseModel):
     task_title: str
     task_description: str
     messages: list[AiChatMessage]
+    current_code: Optional[str] = None
 
 
 class AiChatResponse(BaseModel):

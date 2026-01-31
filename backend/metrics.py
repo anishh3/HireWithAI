@@ -15,11 +15,14 @@ def compute_metrics(events: list) -> dict[str, Any]:
             "edit_count": 0,
             "run_count": 0,
             "refine_cycles": 0,
+            "edits_per_run": 0.0,
             "linear_typing_ratio": 0.0,
             "linear_typing_edits": 0,
             "ai_usage_count": 0,
             "context_switch_seconds": 0,
             "large_paste_count": 0,
+            "ai_prompts": [],
+            "paste_events": [],
         }
 
     first_ts = events[0].timestamp
@@ -30,6 +33,9 @@ def compute_metrics(events: list) -> dict[str, Any]:
     run_count = sum(1 for e in events if e.event_type == "code_run")
     ai_usage_count = sum(1 for e in events if e.event_type == "ai_used")
     large_paste_count = sum(1 for e in events if e.event_type == "large_paste")
+
+    # Edits per run ratio
+    edits_per_run = round(edit_count / run_count, 1) if run_count > 0 else 0.0
 
     # Refine cycles: edit -> run -> edit sequences
     refine_cycles = 0
@@ -69,16 +75,48 @@ def compute_metrics(events: list) -> dict[str, Any]:
 
     linear_typing_ratio = linear_typing_edits / edit_count if edit_count > 0 else 0.0
 
+    # Extract AI prompts
+    ai_prompts = []
+    for e in events:
+        if e.event_type == "ai_used" and e.metadata_:
+            try:
+                meta = json.loads(e.metadata_)
+                prompt = meta.get("prompt", "")
+                if prompt:
+                    ai_prompts.append({
+                        "prompt": prompt,
+                        "timestamp": e.timestamp.isoformat() if e.timestamp else None
+                    })
+            except:
+                pass
+
+    # Extract paste events with content
+    paste_events = []
+    for e in events:
+        if e.event_type == "large_paste" and e.metadata_:
+            try:
+                meta = json.loads(e.metadata_)
+                paste_events.append({
+                    "chars_added": meta.get("chars_added", 0),
+                    "content_preview": meta.get("content_preview", ""),
+                    "timestamp": e.timestamp.isoformat() if e.timestamp else None
+                })
+            except:
+                pass
+
     return {
         "total_time_seconds": total_time,
         "edit_count": edit_count,
         "run_count": run_count,
         "refine_cycles": refine_cycles,
+        "edits_per_run": edits_per_run,
         "linear_typing_ratio": round(linear_typing_ratio, 2),
         "linear_typing_edits": linear_typing_edits,
         "ai_usage_count": ai_usage_count,
         "context_switch_seconds": round(context_switch_seconds, 1),
         "large_paste_count": large_paste_count,
+        "ai_prompts": ai_prompts,
+        "paste_events": paste_events,
     }
 
 
@@ -92,6 +130,8 @@ def generate_insight(metrics: dict[str, Any]) -> str:
         parts.append(f"Used AI {metrics['ai_usage_count']}x")
     if metrics["large_paste_count"] > 2:
         parts.append("Multiple large pastes detected")
+    elif metrics["large_paste_count"] > 0:
+        parts.append(f"{metrics['large_paste_count']} large paste(s) detected")
     if metrics["linear_typing_ratio"] > 0.6:
         parts.append("Linear typing pattern (likely manual coding)")
     if metrics["context_switch_seconds"] > 60:

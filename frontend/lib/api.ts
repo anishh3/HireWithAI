@@ -60,6 +60,23 @@ export async function submit(candidateId: number, taskId: number, finalCode: str
   return res.json();
 }
 
+export async function submitCode(candidateId: number, taskId: number, code: string): Promise<{ passed: number; total: number; details: string }> {
+  const res = await fetch(`${API}/submit`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ candidate_id: candidateId, task_id: taskId, final_code: code, reflection: "" }),
+  });
+  if (!res.ok) throw new Error("Submit failed");
+  const data = await res.json();
+  // Transform response to match frontend expectations
+  const details = data.run_error 
+    ? `Error: ${data.run_error}` 
+    : data.results?.map((r: { input: unknown; expected: unknown; actual: unknown; passed: boolean }) => 
+        `Input: ${JSON.stringify(r.input)} → ${r.passed ? '✓' : '✗'} ${r.passed ? '' : `Expected: ${JSON.stringify(r.expected)}, Got: ${JSON.stringify(r.actual)}`}`
+      ).join('\n') || '';
+  return { passed: data.tests_passed, total: data.tests_total, details };
+}
+
 export async function runCode(candidateId: number, taskId: number, code: string) {
   const res = await fetch(`${API}/run`, {
     method: "POST",
@@ -82,11 +99,14 @@ export async function getRecruiterCandidates() {
   return res.json();
 }
 
-export async function aiChat(taskTitle: string, taskDescription: string, messages: { role: string; content: string }[]) {
+// Alias for backward compatibility
+export const getCandidates = getRecruiterCandidates;
+
+export async function aiChat(taskTitle: string, taskDescription: string, messages: { role: string; content: string }[], currentCode?: string) {
   const res = await fetch(`${API}/ai/chat`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ task_title: taskTitle, task_description: taskDescription, messages }),
+    body: JSON.stringify({ task_title: taskTitle, task_description: taskDescription, messages, current_code: currentCode }),
   });
   if (!res.ok) throw new Error("AI chat failed");
   return res.json();

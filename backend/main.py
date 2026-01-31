@@ -24,14 +24,30 @@ from runner import run_tests, run_code
 
 
 def seed_task(db: Session):
-    if db.query(Task).first():
+    if db.query(Task).count() >= 3:
         return
-    task = Task(
-        title="FizzBuzz",
-        description="Write a function fizzbuzz(n) that returns a list of strings from 1 to n. For multiples of 3 use 'Fizz', for multiples of 5 use 'Buzz', for both use 'FizzBuzz'. Otherwise return the number as a string.",
-        expected_time=15,
-    )
-    db.add(task)
+    
+    tasks = [
+        Task(
+            title="FizzBuzz",
+            description="Write a function fizzbuzz(n) that returns a list of strings from 1 to n. For multiples of 3 use 'Fizz', for multiples of 5 use 'Buzz', for both use 'FizzBuzz'. Otherwise return the number as a string.",
+            expected_time=15,
+        ),
+        Task(
+            title="Palindrome Checker",
+            description="Write a function is_palindrome(s) that returns True if a string is a palindrome (reads the same forwards and backwards, ignoring case and non-alphanumeric characters), and False otherwise.",
+            expected_time=10,
+        ),
+        Task(
+            title="Fibonacci Sequence",
+            description="Write a function fibonacci(n) that returns the nth number in the Fibonacci sequence (0, 1, 1, 2, 3, 5, ...). Assume n=0 returns 0 and n=1 returns 1.",
+            expected_time=10,
+        )
+    ]
+    
+    for t in tasks:
+        if not db.query(Task).filter(Task.title == t.title).first():
+            db.add(t)
     db.commit()
 
 
@@ -232,9 +248,17 @@ def recruiter_candidates(db: Session = Depends(get_db)):
             submission = db.query(Submission).filter(Submission.candidate_id == cid, Submission.task_id == tid).first()
             metrics_dict = compute_metrics(events)
             insight = generate_insight(metrics_dict)
+            conclusion = generate_conclusion(metrics_dict, candidate.email, task.title)
             result.append({
-                "candidate_id": cid, "email": candidate.email, "task_id": tid, "task_title": task.title,
-                "metrics": metrics_dict, "insight": insight, "submitted": submission is not None,
+                "id": cid,
+                "candidate_id": cid, 
+                "email": candidate.email, 
+                "task_id": tid, 
+                "task_title": task.title,
+                "metrics": metrics_dict, 
+                "insight": insight, 
+                "conclusion": conclusion,
+                "submitted": submission is not None,
             })
     return result
 
@@ -249,12 +273,15 @@ async def ai_chat(req: AiChatRequest):
 
 Task: {req.task_title}
 Description: {req.task_description}
+Current Code in Editor:
+{req.current_code or "(No code yet)"}
 
 STRICT RULES:
 1. ONLY answer questions directly about this task: requirements, Python syntax needed, algorithms, hints, debugging tips.
-2. REFUSE to answer greetings, chit-chat, off-topic questions, or anything unrelated to the task.
-3. For off-topic messages (e.g. "hey", "hello", "what's the weather"), respond with ONLY: "I can only help with questions about the task. Try asking about the {req.task_title} requirements, Python syntax, or algorithms."
-4. Do NOT give complete solutions. Give hints and guidance only."""
+2. If the user asks about their current code, provide high-level feedback or hints without giving the full solution.
+3. REFUSE to answer greetings, chit-chat, off-topic questions, or anything unrelated to the task.
+4. For off-topic messages (e.g. "hey", "hello", "what's the weather"), respond with ONLY: "I can only help with questions about the task. Try asking about the {req.task_title} requirements, Python syntax, or algorithms."
+5. Do NOT give complete solutions. Give hints and guidance only."""
 
     messages = [{"role": "system", "content": system}] + [{"role": m.role, "content": m.content} for m in req.messages]
 

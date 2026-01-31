@@ -1,34 +1,38 @@
 "use client";
-import { useState, useEffect } from "react";
+import { useEffect, useState, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { getUser } from "@/lib/storage";
-import { submit } from "@/lib/api";
+import { getTask, submitCode, type Task } from "@/lib/api";
 
-export default function SubmitPage() {
+function SubmitContent() {
   const searchParams = useSearchParams();
-  const taskId = Number(searchParams.get("task") || 1);
+  const taskId = Number(searchParams.get("task"));
+  const [task, setTask] = useState<Task | null>(null);
   const [code, setCode] = useState("");
-  const [reflection, setReflection] = useState("");
+  const [result, setResult] = useState<{ passed: number; total: number; details: string } | null>(null);
   const [loading, setLoading] = useState(false);
-  const [result, setResult] = useState<{ tests_passed: number; tests_total: number; results: any[] } | null>(null);
   const [error, setError] = useState("");
 
   useEffect(() => {
-    const stored = sessionStorage.getItem(`code_${taskId}`);
+    const u = getUser();
+    if (!u || u.role !== "candidate") { window.location.href = "/login"; return; }
+    if (!taskId) return;
+    getTask(taskId).then(setTask);
+    const storageKey = `code_${u.candidate_id}_${taskId}`;
+    const stored = typeof sessionStorage !== "undefined" ? sessionStorage.getItem(storageKey) : null;
     if (stored) setCode(stored);
   }, [taskId]);
 
-  async function handleSubmit(e: React.FormEvent) {
-    e.preventDefault();
+  async function handleSubmit() {
     const u = getUser();
-    if (!u || u.role !== "candidate") return;
-
+    if (!u || u.role !== "candidate" || !taskId) return;
     setLoading(true);
     setError("");
     try {
-      const res = await submit(u.candidate_id, taskId, code, reflection);
-      setResult(res);
+      const res = await submitCode(u.candidate_id, taskId, code);
+      setResult({ passed: res.passed, total: res.total, details: res.details });
+      if (typeof sessionStorage !== "undefined") sessionStorage.removeItem(`code_${u.candidate_id}_${taskId}`);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Submission failed");
     } finally {
@@ -36,69 +40,167 @@ export default function SubmitPage() {
     }
   }
 
-  if (result) {
-    const allPassed = result.tests_passed === result.tests_total;
-    return (
-      <div style={{ minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", padding: "2rem" }}>
-        <div className="glass-card" style={{ maxWidth: "600px", width: "100%", padding: "3rem", textAlign: "center" }}>
-          <div style={{ fontSize: "4rem", marginBottom: "1rem" }}>{allPassed ? "🎉" : "📝"}</div>
-          <h1 style={{ fontSize: "1.75rem", fontWeight: 700, marginBottom: "0.5rem" }}>
-            {allPassed ? "All Tests Passed!" : "Submission Received"}
-          </h1>
-          <p style={{ fontSize: "1.25rem", color: allPassed ? "var(--success)" : "var(--text-muted)", marginBottom: "2rem" }}>
-            {result.tests_passed}/{result.tests_total} tests passed
-          </p>
-          
-          {result.results.length > 0 && (
-            <div style={{ textAlign: "left", marginBottom: "2rem" }}>
-              {result.results.map((r, i) => (
-                <div key={i} style={{ padding: "0.75rem", borderRadius: "8px", marginBottom: "0.5rem", background: r.passed ? "rgba(16, 185, 129, 0.1)" : "rgba(239, 68, 68, 0.1)", border: `1px solid ${r.passed ? "rgba(16, 185, 129, 0.2)" : "rgba(239, 68, 68, 0.2)"}` }}>
-                  <span style={{ fontWeight: 600, color: r.passed ? "var(--success)" : "var(--error)" }}>{r.passed ? "✓" : "✗"}</span>
-                  <span style={{ marginLeft: "0.5rem", fontSize: "0.875rem", color: "var(--text-muted)" }}>Input: {JSON.stringify(r.input)}</span>
-                </div>
-              ))}
-            </div>
-          )}
-          
-          <Link href="/dashboard" className="btn-primary">Back to Dashboard</Link>
-        </div>
-      </div>
-    );
-  }
+  if (!task) return (
+    <div style={{ height: "100vh", display: "flex", alignItems: "center", justifyContent: "center", background: "var(--bg-base)", color: "var(--text-tertiary)" }}>
+      Loading...
+    </div>
+  );
+
+  const allPassed = result && result.passed === result.total;
 
   return (
-    <div style={{ minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", padding: "2rem" }}>
-      <div className="glass-card" style={{ maxWidth: "600px", width: "100%", padding: "3rem" }}>
-        <h1 style={{ fontSize: "1.75rem", fontWeight: 700, marginBottom: "0.5rem", textAlign: "center" }}>Submit Your Solution</h1>
-        <p style={{ color: "var(--text-muted)", marginBottom: "2rem", textAlign: "center" }}>Your code from the editor will be tested automatically</p>
+    <main style={{ 
+      minHeight: "100vh", 
+      display: "flex", 
+      alignItems: "center", 
+      justifyContent: "center", 
+      padding: "var(--space-6)", 
+      background: "var(--bg-base)" 
+    }}>
+      <div className="card animate-fade-in" style={{ width: "100%", maxWidth: "520px", padding: "var(--space-8)" }}>
+        {result ? (
+          <div style={{ textAlign: "center" }}>
+            <div style={{ 
+              width: "64px", 
+              height: "64px", 
+              background: allPassed ? "var(--success-muted)" : "var(--error-muted)", 
+              borderRadius: "50%",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              margin: "0 auto var(--space-5)",
+            }}>
+              {allPassed ? (
+                <svg width="32" height="32" fill="none" stroke="var(--success)" strokeWidth="2" viewBox="0 0 24 24">
+                  <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" />
+                  <polyline points="22 4 12 14.01 9 11.01" />
+                </svg>
+              ) : (
+                <svg width="32" height="32" fill="none" stroke="var(--error)" strokeWidth="2" viewBox="0 0 24 24">
+                  <circle cx="12" cy="12" r="10" />
+                  <line x1="15" y1="9" x2="9" y2="15" />
+                  <line x1="9" y1="9" x2="15" y2="15" />
+                </svg>
+              )}
+            </div>
+            <h1 style={{ fontSize: "1.5rem", fontWeight: 600, marginBottom: "var(--space-2)" }}>
+              {allPassed ? "All tests passed!" : "Some tests failed"}
+            </h1>
+            <p style={{ color: "var(--text-secondary)", marginBottom: "var(--space-6)" }}>
+              {result.passed} of {result.total} tests passed
+            </p>
 
-        {!code ? (
-          <div style={{ padding: "1.5rem", background: "rgba(239, 68, 68, 0.1)", borderRadius: "10px", border: "1px solid rgba(239, 68, 68, 0.2)", textAlign: "center" }}>
-            <p style={{ color: "var(--error)", fontSize: "0.9rem", marginBottom: "0.5rem" }}>No code found</p>
-            <p style={{ color: "var(--text-muted)", fontSize: "0.85rem", marginBottom: "1rem" }}>Go to the task workspace to write your solution, then click Submit.</p>
-            <Link href={`/task/${taskId}`} className="btn-primary">Back to Task</Link>
+            {result.details && (
+              <div style={{ 
+                background: "var(--bg-surface)", 
+                borderRadius: "var(--radius-md)", 
+                padding: "var(--space-4)", 
+                marginBottom: "var(--space-6)",
+                textAlign: "left",
+              }}>
+                <p className="text-label" style={{ marginBottom: "var(--space-2)" }}>Test Details</p>
+                <pre style={{ 
+                  fontSize: "0.8rem", 
+                  color: "var(--text-secondary)", 
+                  whiteSpace: "pre-wrap", 
+                  margin: 0,
+                  fontFamily: "'Fira Code', monospace",
+                  lineHeight: 1.6,
+                }}>
+                  {result.details}
+                </pre>
+              </div>
+            )}
+
+            <div style={{ display: "flex", gap: "var(--space-3)" }}>
+              <Link href="/dashboard" className="btn-secondary" style={{ flex: 1, justifyContent: "center", textDecoration: "none" }}>
+                Dashboard
+              </Link>
+              <Link href="/submissions" className="btn-primary" style={{ flex: 1, justifyContent: "center", textDecoration: "none" }}>
+                View Submissions
+              </Link>
+            </div>
           </div>
         ) : (
-          <form onSubmit={handleSubmit}>
-            <div style={{ marginBottom: "1.5rem" }}>
-              <label style={{ display: "block", marginBottom: "0.5rem", fontSize: "0.8rem", fontWeight: 700, color: "var(--text-dim)", textTransform: "uppercase" }}>Reflection (optional)</label>
-              <textarea
-                value={reflection}
-                onChange={(e) => setReflection(e.target.value)}
-                rows={3}
-                placeholder="How did you approach this problem?"
-                style={{ width: "100%", padding: "1rem", borderRadius: "10px", border: "1px solid var(--border)", background: "var(--bg-input)", color: "white", fontSize: "0.9rem", resize: "vertical" }}
-              />
+          <>
+            <div style={{ textAlign: "center", marginBottom: "var(--space-6)" }}>
+              <div style={{ 
+                width: "48px", 
+                height: "48px", 
+                background: "var(--primary-muted)", 
+                borderRadius: "var(--radius-md)",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                margin: "0 auto var(--space-4)",
+              }}>
+                <svg width="24" height="24" fill="none" stroke="var(--primary)" strokeWidth="2" viewBox="0 0 24 24">
+                  <path d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+              </div>
+              <h1 style={{ fontSize: "1.5rem", fontWeight: 600, marginBottom: "var(--space-2)" }}>Submit Solution</h1>
+              <p style={{ color: "var(--text-secondary)" }}>{task.title}</p>
             </div>
 
-            {error && <p style={{ color: "var(--error)", marginBottom: "1rem", textAlign: "center" }}>{error}</p>}
+            <div style={{ 
+              background: "var(--bg-surface)", 
+              borderRadius: "var(--radius-md)", 
+              padding: "var(--space-4)", 
+              marginBottom: "var(--space-6)",
+            }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "var(--space-3)" }}>
+                <p className="text-label">Your Code</p>
+                <span style={{ fontSize: "0.75rem", color: "var(--text-tertiary)" }}>{code.length} chars</span>
+              </div>
+              <pre style={{ 
+                fontSize: "0.8rem", 
+                color: "var(--text-secondary)", 
+                whiteSpace: "pre-wrap", 
+                margin: 0,
+                fontFamily: "'Fira Code', monospace",
+                maxHeight: "200px",
+                overflow: "auto",
+                lineHeight: 1.6,
+              }}>
+                {code || "(No code written)"}
+              </pre>
+            </div>
 
-            <button type="submit" disabled={loading} className="btn-primary" style={{ width: "100%" }}>
-              {loading ? "Submitting..." : "Submit Solution"}
-            </button>
-          </form>
+            {error && (
+              <p style={{ 
+                color: "var(--error)", 
+                marginBottom: "var(--space-4)", 
+                fontSize: "0.875rem", 
+                textAlign: "center",
+                padding: "var(--space-3)",
+                background: "var(--error-muted)",
+                borderRadius: "var(--radius-sm)",
+              }}>{error}</p>
+            )}
+
+            <div style={{ display: "flex", gap: "var(--space-3)" }}>
+              <Link href={`/task/${taskId}`} className="btn-secondary" style={{ flex: 1, justifyContent: "center", textDecoration: "none" }}>
+                Back to Editor
+              </Link>
+              <button onClick={handleSubmit} disabled={loading || !code} className="btn-primary" style={{ flex: 1, justifyContent: "center" }}>
+                {loading ? "Submitting..." : "Submit"}
+              </button>
+            </div>
+          </>
         )}
       </div>
-    </div>
+    </main>
+  );
+}
+
+export default function SubmitPage() {
+  return (
+    <Suspense fallback={
+      <div style={{ height: "100vh", display: "flex", alignItems: "center", justifyContent: "center", background: "var(--bg-base)", color: "var(--text-tertiary)" }}>
+        Loading...
+      </div>
+    }>
+      <SubmitContent />
+    </Suspense>
   );
 }

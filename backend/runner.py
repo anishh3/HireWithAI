@@ -13,11 +13,26 @@ TASK_TEST_CASES = {
         {"args": [15], "expected": ["1", "2", "Fizz", "4", "Buzz", "Fizz", "7", "8", "Fizz", "Buzz", "11", "Fizz", "13", "14", "FizzBuzz"]},
         {"args": [16], "expected": ["1", "2", "Fizz", "4", "Buzz", "Fizz", "7", "8", "Fizz", "Buzz", "11", "Fizz", "13", "14", "FizzBuzz", "16"]},
     ],
+    2: [  # Palindrome Checker
+        {"args": ["racecar"], "expected": True},
+        {"args": ["A man, a plan, a canal: Panama"], "expected": True},
+        {"args": ["hello"], "expected": False},
+        {"args": ["12321"], "expected": True},
+        {"args": ["not a palindrome"], "expected": False},
+    ],
+    3: [  # Fibonacci
+        {"args": [0], "expected": 0},
+        {"args": [1], "expected": 1},
+        {"args": [2], "expected": 1},
+        {"args": [5], "expected": 5},
+        {"args": [10], "expected": 55},
+    ],
 }
 
 RUNNER_SCRIPT = '''
 import json
 import sys
+import re
 
 with open("solution.py", "r", encoding="utf-8") as f:
     code = f.read()
@@ -32,9 +47,24 @@ except Exception as e:
     print(json.dumps({"error": f"Syntax/runtime error: {e}", "results": []}))
     sys.exit(0)
 
-fn = namespace.get("fizzbuzz") or namespace.get("fizz_buzz")
+# Try to find the function based on common names or task-specific names
+fn = (
+    namespace.get("fizzbuzz") or 
+    namespace.get("fizz_buzz") or 
+    namespace.get("is_palindrome") or 
+    namespace.get("palindrome") or 
+    namespace.get("fibonacci") or 
+    namespace.get("fib")
+)
+
 if fn is None:
-    print(json.dumps({"error": "Function fizzbuzz or fizz_buzz not found", "results": []}))
+    # Fallback: try to find any defined function if only one exists
+    functions = [v for k, v in namespace.items() if callable(v) and not k.startswith("__")]
+    if len(functions) == 1:
+        fn = functions[0]
+
+if fn is None:
+    print(json.dumps({"error": "Function not found. Please ensure your function name matches the task (e.g., fizzbuzz, is_palindrome, or fibonacci).", "results": []}))
     sys.exit(0)
 
 results = []
@@ -42,7 +72,10 @@ for tc in test_cases:
     args = tc["args"]
     expected = tc["expected"]
     try:
-        got = fn(*args)
+        if isinstance(args, list):
+            got = fn(*args)
+        else:
+            got = fn(args)
         passed = got == expected
         results.append({"input": args, "expected": expected, "got": got, "passed": passed, "error": None})
     except Exception as e:
@@ -62,16 +95,49 @@ except Exception as e:
     import traceback
     traceback.print_exc()
     sys.exit(1)
-fn = namespace.get("fizzbuzz") or namespace.get("fizz_buzz")
+
+# Try to find the function
+fn = (
+    namespace.get("fizzbuzz") or 
+    namespace.get("fizz_buzz") or 
+    namespace.get("is_palindrome") or 
+    namespace.get("palindrome") or 
+    namespace.get("fibonacci") or 
+    namespace.get("fib")
+)
+
+if fn is None:
+    functions = [v for k, v in namespace.items() if callable(v) and not k.startswith("__")]
+    if len(functions) == 1:
+        fn = functions[0]
+
 if fn is not None:
     try:
-        result = fn(15)
-        print(result)
+        # Task-specific default test for "Run" button
+        import inspect
+        sig = inspect.signature(fn)
+        params = list(sig.parameters.values())
+        
+        if len(params) == 1:
+            # Try a reasonable default based on name
+            name = fn.__name__.lower()
+            if "palindrome" in name:
+                val = "racecar"
+            elif "fib" in name:
+                val = 10
+            else:
+                val = 15
+            
+            result = fn(val)
+            print(f"Output for {fn.__name__}({repr(val)}):")
+            print(result)
+        else:
+            print(f"(Function {fn.__name__} defined. Click Submit to run all tests.)")
     except Exception as e:
         import traceback
         traceback.print_exc()
 else:
-    print("(Define fizzbuzz(n) or fizz_buzz(n) to see output)")
+    print("(Define your function to see output here)")
 '''
 
 
