@@ -140,18 +140,88 @@ def generate_insight(metrics: dict[str, Any]) -> str:
 
 
 def generate_conclusion(metrics: dict[str, Any], email: str, task_title: str) -> str:
-    score_parts = []
-    if metrics["linear_typing_ratio"] > 0.5:
-        score_parts.append("shows organic typing patterns")
-    if metrics["refine_cycles"] >= 2:
-        score_parts.append("demonstrates iterative problem-solving")
-    if metrics["large_paste_count"] <= 1:
-        score_parts.append("minimal copy-paste reliance")
-    if metrics["ai_usage_count"] <= 2:
-        score_parts.append("limited AI assistance")
-    elif metrics["ai_usage_count"] > 5:
-        score_parts.append("heavy AI usage")
-
-    if score_parts:
-        return f"Candidate {score_parts[0]}, {', '.join(score_parts[1:])}." if len(score_parts) > 1 else f"Candidate {score_parts[0]}."
-    return "Insufficient data for behavioral conclusion."
+    """Generate a comprehensive AI-driven conclusion based on candidate metrics."""
+    
+    # Calculate key indicators
+    linear_typing = metrics.get("linear_typing_ratio", 0)
+    refine_cycles = metrics.get("refine_cycles", 0)
+    paste_count = metrics.get("large_paste_count", 0)
+    ai_count = metrics.get("ai_usage_count", 0)
+    edit_count = metrics.get("edit_count", 0)
+    run_count = metrics.get("run_count", 0)
+    total_time = metrics.get("total_time_seconds", 0)
+    context_switch = metrics.get("context_switch_seconds", 0)
+    edits_per_run = metrics.get("edits_per_run", 0)
+    
+    # Calculate focus percentage
+    focus_percent = ((total_time - context_switch) / total_time * 100) if total_time > 0 else 100
+    
+    # Build conclusion based on patterns
+    conclusion_parts = []
+    
+    # Coding authenticity assessment
+    if linear_typing > 0.6 and paste_count == 0:
+        conclusion_parts.append("Strong evidence of authentic, manual coding")
+    elif linear_typing > 0.4 and paste_count <= 1:
+        conclusion_parts.append("Mostly original work with minimal external code")
+    elif paste_count > 2 or (paste_count > 0 and linear_typing < 0.3):
+        conclusion_parts.append("Significant reliance on copy-pasted code - review pasted content carefully")
+    
+    # Problem-solving approach
+    if refine_cycles >= 4:
+        conclusion_parts.append("Excellent iterative problem-solving approach with multiple test-and-refine cycles")
+    elif refine_cycles >= 2:
+        conclusion_parts.append("Good iterative development pattern")
+    elif run_count == 0:
+        conclusion_parts.append("Did not test code before submission - may indicate uncertainty or time pressure")
+    elif refine_cycles == 0 and run_count > 0:
+        conclusion_parts.append("Limited iteration - code may have worked on first attempt or candidate gave up early")
+    
+    # AI usage assessment
+    if ai_count == 0:
+        conclusion_parts.append("Completed task independently without AI assistance")
+    elif ai_count <= 2:
+        conclusion_parts.append("Minimal AI usage - shows self-reliance")
+    elif ai_count <= 5:
+        conclusion_parts.append("Moderate AI assistance - reasonable use of available tools")
+    else:
+        conclusion_parts.append(f"Heavy AI reliance ({ai_count} queries) - may indicate struggle with core concepts")
+    
+    # Focus and engagement
+    if focus_percent >= 90:
+        conclusion_parts.append("Highly focused throughout the assessment")
+    elif focus_percent >= 70:
+        conclusion_parts.append("Good focus with minimal distractions")
+    elif focus_percent < 50:
+        conclusion_parts.append(f"Spent {100-int(focus_percent)}% of time away from task - possible external research or distraction")
+    
+    # Efficiency assessment
+    if total_time > 0:
+        mins = int(total_time / 60)
+        if edits_per_run > 10:
+            conclusion_parts.append("Thoughtful approach - makes many changes before testing")
+        elif edits_per_run > 0 and edits_per_run < 3:
+            conclusion_parts.append("Quick iteration style - tests frequently")
+    
+    # Overall recommendation
+    score = 0
+    if linear_typing > 0.5: score += 25
+    if refine_cycles >= 2: score += 20
+    if paste_count == 0: score += 20
+    if ai_count <= 3: score += 15
+    if focus_percent >= 70: score += 10
+    if run_count >= 2: score += 10
+    
+    if score >= 80:
+        recommendation = "STRONG CANDIDATE - Shows authentic problem-solving skills and good development practices."
+    elif score >= 60:
+        recommendation = "PROMISING CANDIDATE - Demonstrates competence with some areas for discussion in interview."
+    elif score >= 40:
+        recommendation = "NEEDS REVIEW - Mixed signals; recommend deeper technical interview to assess true ability."
+    else:
+        recommendation = "CONCERNS NOTED - Multiple red flags suggest possible over-reliance on external resources."
+    
+    # Compile final conclusion
+    if conclusion_parts:
+        return f"{'. '.join(conclusion_parts)}. \n\n{recommendation}"
+    return recommendation
